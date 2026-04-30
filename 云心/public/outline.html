@@ -751,7 +751,7 @@
     }
 
     // 带超时的 fetch 封装
-    async function fetchWithTimeout(url, options = {}, timeoutMs = 120000) {
+    async function fetchWithTimeout(url, options = {}, timeoutMs = 300000) {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
       try {
@@ -800,7 +800,7 @@
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ prompt, outline, mode }),
-        }, 120000); // 2分钟超时，给 AI 充足时间
+        }, 300000); // 5分钟超时，给 AI 充足时间
 
         const data = await safeJson(res);
 
