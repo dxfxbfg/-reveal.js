@@ -5,7 +5,7 @@ const ZHIPU_API_KEY = process.env.ZHIPU_API_KEY || '';
 const ZHIPU_API_URL = 'https://open.bigmodel.cn/api/paas/v4/chat/completions';
 const DEFAULT_MODEL = 'glm-4-flash';
 const MAX_RETRIES = 2;
-const REQUEST_TIMEOUT = 90000; // 增加到90秒，给大响应更多时间
+const REQUEST_TIMEOUT = 300000; // 5分钟超时，给大响应更多时间
 
 // 更健壮的 fetch 封装，带超时和错误处理
 async function fetchWithTimeout(url, options, timeoutMs) {
