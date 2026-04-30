@@ -1311,7 +1311,7 @@
     }
 
     // 带超时的 fetch 封装
-    async function fetchWithTimeout(url, options = {}, timeoutMs = 120000) {
+    async function fetchWithTimeout(url, options = {}, timeoutMs = 300000) {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
       try {
@@ -1371,7 +1371,7 @@
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ action: 'outline', prompt, pages: 8 }),
-        }, 90000);
+        }, 300000);
         const data = await safeJson(res);
         if (!res.ok || !data.success) throw new Error(data.error || '大纲生成失败');
         localStorage.setItem('slidegen_outline', JSON.stringify(data.outline));
@@ -1394,7 +1394,7 @@
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ prompt, mode: document.getElementById('mode').value }),
-        }, 120000);
+        }, 300000);
         const data = await safeJson(res);
         if (!res.ok || !data.success) throw new Error(data.error || '生成失败');
         if (!data.html || !data.html.trim()) throw new Error('服务器返回了空的幻灯片内容');
