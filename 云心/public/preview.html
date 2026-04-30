@@ -1,0 +1,587 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>预览 — 云心</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600;700&family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #faf9f7;
+      --surface: rgba(255,255,255,0.85);
+      --border: rgba(139,119,101,0.12);
+      --text: #2c2420;
+      --text-secondary: #6b5d52;
+      --accent: #c4956a;
+      --accent-soft: #d4b896;
+      --accent-glow: rgba(196,149,106,0.15);
+      --radius: 14px;
+      --shadow-soft: 0 4px 24px rgba(44,36,32,0.06);
+    }
+
+    * { margin:0; padding:0; box-sizing:border-box; }
+
+    html { font-size: 16px; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif;
+      font-weight: 400;
+      overflow: hidden;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    ::selection {
+      background: rgba(196,149,106,0.2);
+      color: var(--text);
+    }
+
+    /* ========== NAVIGATION ========== */
+    .nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: 60px;
+      background: rgba(250,249,247,0.85);
+      backdrop-filter: blur(24px) saturate(1.2);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 24px;
+      z-index: 100;
+      transition: all 0.3s ease;
+    }
+
+    .nav-left {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .nav-logo {
+      width: 32px; height: 32px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-soft));
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 15px;
+      box-shadow: 0 4px 12px var(--accent-glow);
+    }
+
+    .nav h1 {
+      font-family: 'Noto Serif SC', serif;
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--text);
+      letter-spacing: 0.02em;
+    }
+
+    .badge {
+      font-size: 0.72rem;
+      padding: 3px 10px;
+      border-radius: 20px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+
+    .badge.ai {
+      background: rgba(90,170,128,0.1);
+      color: #3a8a60;
+      border: 1.5px solid rgba(90,170,128,0.2);
+    }
+
+    .badge.fallback {
+      background: rgba(200,160,80,0.1);
+      color: #8a7030;
+      border: 1.5px solid rgba(200,160,80,0.2);
+    }
+
+    .nav-right {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .view-toggle {
+      display: flex;
+      background: rgba(0,0,0,0.04);
+      border-radius: 10px;
+      padding: 3px;
+      gap: 3px;
+    }
+
+    .view-toggle button {
+      padding: 6px 14px;
+      border-radius: 8px;
+      font-size: 0.82rem;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      cursor: pointer;
+      transition: all 0.25s ease;
+      font-weight: 600;
+      font-family: inherit;
+    }
+
+    .view-toggle button.active {
+      background: rgba(196,149,106,0.12);
+      color: #8a7030;
+    }
+
+    .nav-btn {
+      padding: 7px 16px;
+      border-radius: 10px;
+      font-size: 0.84rem;
+      cursor: pointer;
+      border: none;
+      transition: all 0.25s ease;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-family: inherit;
+      letter-spacing: 0.02em;
+    }
+
+    .nav-btn.secondary {
+      background: rgba(255,255,255,0.7);
+      color: var(--text-secondary);
+      border: 1.5px solid var(--border);
+    }
+
+    .nav-btn.secondary:hover {
+      color: var(--text);
+      border-color: var(--border-hover);
+      background: rgba(255,255,255,0.9);
+    }
+
+    .nav-btn.primary {
+      background: linear-gradient(135deg, var(--accent), var(--accent-soft));
+      color: #fff;
+      box-shadow: 0 4px 12px var(--accent-glow);
+    }
+
+    .nav-btn.primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px rgba(196,149,106,0.2);
+    }
+
+    /* ========== WORKSPACE ========== */
+    .workspace {
+      position: fixed;
+      top: 60px; left: 0; right: 0; bottom: 0;
+      display: flex;
+    }
+
+    .preview-panel {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      background: #f0ece5;
+    }
+
+    .preview-panel iframe {
+      width: 100%; height: 100%;
+      border: none;
+    }
+
+    .editor-panel {
+      display: none;
+      flex-direction: column;
+      width: 50%;
+      border-left: 1px solid var(--border);
+      background: #fff;
+    }
+
+    .editor-panel.active {
+      display: flex;
+    }
+
+    .editor-header {
+      padding: 10px 18px;
+      background: rgba(0,0,0,0.02);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .editor-header span {
+      font-size: 0.84rem;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 500;
+    }
+
+    .status-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    .status-dot.saved {
+      background: #5aaa80;
+    }
+
+    .status-dot.unsaved {
+      background: #d4a030;
+      animation: pulse 1.2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    .editor-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .editor-panel textarea {
+      flex: 1;
+      background: #fff;
+      color: var(--text);
+      border: none;
+      padding: 18px;
+      font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', Consolas, monospace;
+      font-size: 13px;
+      line-height: 1.7;
+      resize: none;
+      outline: none;
+      tab-size: 2;
+      overflow: auto;
+    }
+
+    .editor-panel textarea::selection {
+      background: rgba(196,149,106,0.2);
+    }
+
+    /* ========== VIEW MODES ========== */
+    .workspace.split .editor-panel {
+      display: flex;
+      width: 50%;
+    }
+
+    .workspace.editor-only .preview-panel {
+      display: none;
+    }
+
+    .workspace.editor-only .editor-panel {
+      width: 100%;
+      display: flex;
+    }
+
+    /* ========== EMPTY STATE ========== */
+    .empty {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100%;
+      color: var(--text-muted);
+      gap: 16px;
+    }
+
+    .empty h3 {
+      color: var(--text-secondary);
+      font-family: 'Noto Serif SC', serif;
+      font-size: 1.2rem;
+      font-weight: 600;
+    }
+
+    /* ========== INFO BAR ========== */
+    .info-bar {
+      position: fixed;
+      bottom: 14px; left: 14px;
+      background: rgba(255,255,255,0.85);
+      backdrop-filter: blur(12px);
+      padding: 6px 16px;
+      border-radius: 24px;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      z-index: 99;
+      pointer-events: none;
+      border: 1px solid var(--border);
+      font-weight: 500;
+      box-shadow: var(--shadow-soft);
+    }
+
+    /* ========== KEYBOARD HINTS ========== */
+    .kbd-bar {
+      position: fixed;
+      bottom: 14px; right: 14px;
+      font-size: 0.72rem;
+      color: #c0b8a8;
+      z-index: 99;
+      text-align: right;
+      line-height: 1.8;
+      pointer-events: none;
+      font-weight: 500;
+    }
+
+    .kbd-bar kbd {
+      background: rgba(255,255,255,0.7);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      padding: 2px 7px;
+      font-size: 0.68rem;
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* ========== TOAST ========== */
+    .toast {
+      position: fixed;
+      top: 72px; left: 50%;
+      transform: translateX(-50%);
+      background: rgba(90,170,128,0.1);
+      color: #3a8a60;
+      border: 1.5px solid rgba(90,170,128,0.2);
+      padding: 10px 24px;
+      border-radius: 12px;
+      font-size: 0.88rem;
+      z-index: 101;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      pointer-events: none;
+      font-weight: 600;
+      box-shadow: var(--shadow-soft);
+    }
+
+    .toast.show {
+      opacity: 1;
+    }
+
+    /* ========== SCROLLBAR ========== */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+
+    ::-webkit-scrollbar-track {
+      background: transparent;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      background: rgba(139,119,101,0.2);
+      border-radius: 3px;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(139,119,101,0.35);
+    }
+
+    /* ========== MOBILE ========== */
+    @media (max-width: 768px) {
+      .workspace.split .editor-panel {
+        width: 100%;
+        position: absolute;
+        inset: 0;
+        z-index: 50;
+      }
+      .kbd-bar {
+        display: none;
+      }
+      .nav h1 {
+        display: none;
+      }
+      .view-toggle button {
+        padding: 5px 10px;
+        font-size: 0.75rem;
+      }
+      .nav-btn {
+        padding: 5px 12px;
+        font-size: 0.78rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="nav">
+    <div class="nav-left">
+      <div class="nav-logo">☁️</div>
+      <h1 id="slideTitle">幻灯片预览</h1>
+      <span id="aiBadge" class="badge"></span>
+    </div>
+    <div class="nav-right">
+      <div class="view-toggle">
+        <button id="viewPreview" class="active" onclick="setView('preview')">预览</button>
+        <button id="viewSplit" onclick="setView('split')">分屏</button>
+        <button id="viewEditor" onclick="setView('editor')">代码</button>
+      </div>
+      <button class="nav-btn secondary" onclick="goBack()">← 返回</button>
+      <button class="nav-btn secondary" onclick="copyCode()">📋 复制</button>
+      <button class="nav-btn primary" onclick="downloadHTML()">⬇ 下载</button>
+    </div>
+  </div>
+
+  <div class="workspace" id="workspace">
+    <div class="preview-panel" id="previewPanel">
+      <div class="empty" id="emptyState">
+        <h3>加载中...</h3>
+      </div>
+    </div>
+    <div class="editor-panel" id="editorPanel">
+      <div class="editor-header">
+        <span><span class="status-dot saved" id="statusDot"></span>HTML 代码</span>
+        <div class="editor-actions">
+          <button class="nav-btn secondary" onclick="formatCode()">🎨 格式化</button>
+          <button class="nav-btn primary" onclick="updatePreview()">↻ 更新</button>
+        </div>
+      </div>
+      <textarea id="codeEditor" spellcheck="false"></textarea>
+    </div>
+  </div>
+
+  <div class="info-bar" id="infoBar"></div>
+  <div class="kbd-bar">
+    <kbd>→</kbd> 下一页 <kbd>←</kbd> 上一页<br>
+    <kbd>F</kbd> 全屏 <kbd>O</kbd> 总览 <kbd>S</kbd> 备注<br>
+    <kbd>Ctrl+S</kbd> 更新预览
+  </div>
+  <div class="toast" id="toast"></div>
+
+  <script>
+    let slideHTML = '';
+    let slideTitle = '未命名幻灯片';
+    let isAI = false;
+    let currentView = 'preview';
+    let autoUpdateTimer = null;
+    let hasUnsavedChanges = false;
+
+    function init() {
+      const params = new URLSearchParams(window.location.search);
+      const encodedHTML = params.get('html');
+      slideTitle = decodeURIComponent(params.get('title') || '未命名幻灯片');
+      isAI = params.get('ai') === '1';
+      const model = params.get('model') || '';
+
+      document.getElementById('slideTitle').textContent = slideTitle;
+      const badgeEl = document.getElementById('aiBadge');
+      if (isAI) { badgeEl.textContent = '✓ AI'; badgeEl.className = 'badge ai'; }
+      else { badgeEl.textContent = '⚠ 基础模板'; badgeEl.className = 'badge fallback'; }
+
+      if (!encodedHTML) {
+        document.getElementById('emptyState').innerHTML = `
+          <h3>没有可预览的幻灯片</h3>
+          <button class="nav-btn primary" onclick="goBack()" style="margin-top:12px">去创建</button>`;
+        return;
+      }
+      slideHTML = decodeURIComponent(encodedHTML);
+      document.getElementById('codeEditor').value = slideHTML;
+      updatePreview();
+      const sectionCount = (slideHTML.match(/<section/g) || []).length;
+      document.getElementById('infoBar').textContent = `共 ${sectionCount} 页 · reveal.js v5`;
+
+      const editor = document.getElementById('codeEditor');
+      editor.addEventListener('input', () => {
+        hasUnsavedChanges = true;
+        updateStatus('unsaved');
+        clearTimeout(autoUpdateTimer);
+        autoUpdateTimer = setTimeout(() => { updatePreview(); updateStatus('saved'); }, 1200);
+      });
+      document.addEventListener('keydown', e => {
+        if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+          e.preventDefault();
+          updatePreview();
+          updateStatus('saved');
+          showToast('✅ 预览已更新');
+        }
+      });
+    }
+
+    function updatePreview() {
+      const editor = document.getElementById('codeEditor');
+      slideHTML = editor.value;
+      hasUnsavedChanges = false;
+      const iframe = document.getElementById('slideFrame');
+      if (iframe) { iframe.srcdoc = slideHTML; }
+      else {
+        const container = document.getElementById('previewPanel');
+        container.innerHTML = '';
+        const newIframe = document.createElement('iframe');
+        newIframe.id = 'slideFrame';
+        newIframe.srcdoc = slideHTML;
+        container.appendChild(newIframe);
+      }
+      const sectionCount = (slideHTML.match(/<section/g) || []).length;
+      document.getElementById('infoBar').textContent = `共 ${sectionCount} 页 · reveal.js v5`;
+    }
+
+    function setView(view) {
+      currentView = view;
+      const ws = document.getElementById('workspace');
+      ws.className = 'workspace';
+      ['viewPreview','viewSplit','viewEditor'].forEach(id => document.getElementById(id).classList.remove('active'));
+      document.getElementById('editorPanel').classList.remove('active');
+      switch(view) {
+        case 'preview': document.getElementById('viewPreview').classList.add('active'); break;
+        case 'split': ws.classList.add('split'); document.getElementById('viewSplit').classList.add('active'); document.getElementById('editorPanel').classList.add('active'); break;
+        case 'editor': ws.classList.add('editor-only'); document.getElementById('viewEditor').classList.add('active'); document.getElementById('editorPanel').classList.add('active'); break;
+      }
+    }
+
+    function updateStatus(status) {
+      const dot = document.getElementById('statusDot');
+      dot.className = 'status-dot ' + status;
+    }
+
+    function formatCode() {
+      const editor = document.getElementById('codeEditor');
+      let code = editor.value;
+      const indent = '  ';
+      let formatted = '';
+      let level = 0;
+      const lines = code.replace(/>\s*</g, '>\n<').split('\n');
+      lines.forEach(line => {
+        line = line.trim();
+        if (!line) return;
+        if (line.match(/^<\/(section|div|html|head|body|script|style|ul)/i)) level = Math.max(0, level - 1);
+        formatted += indent.repeat(level) + line + '\n';
+        if (line.match(/^<(section|div|html|head|body|script|style|ul|li)/i) && !line.match(/<\/.*>$/)) level++;
+      });
+      editor.value = formatted.trim();
+      updatePreview();
+      showToast('🎨 代码已格式化');
+    }
+
+    function goBack() { window.location.href = '/'; }
+    function showToast(msg) {
+      const el = document.getElementById('toast');
+      el.textContent = msg;
+      el.classList.add('show');
+      setTimeout(() => el.classList.remove('show'), 2200);
+    }
+    function downloadHTML() {
+      if (!slideHTML) return;
+      const blob = new Blob([slideHTML], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = (slideTitle.replace(/[^\w\u4e00-\u9fa5]/g, '_') || 'slide') + '.html';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast('✅ HTML 已下载');
+    }
+    function copyCode() {
+      const code = document.getElementById('codeEditor').value;
+      if (!code) return;
+      navigator.clipboard.writeText(code).then(() => showToast('📋 代码已复制')).catch(() => {
+        document.getElementById('codeEditor').select();
+        document.execCommand('copy');
+        showToast('📋 代码已复制');
+      });
+    }
+
+    init();
+  </script>
+</body>
+</html>

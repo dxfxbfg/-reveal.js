@@ -1,0 +1,1421 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>云心 — AI 幻灯片生成器</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600;700&family=Noto+Serif+SC:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #faf9f7;
+      --bg-warm: #f5f0e8;
+      --surface: rgba(255,255,255,0.85);
+      --surface-hover: rgba(255,255,255,0.95);
+      --border: rgba(139,119,101,0.12);
+      --border-hover: rgba(139,119,101,0.22);
+      --text: #2c2420;
+      --text-secondary: #6b5d52;
+      --text-muted: #a09488;
+      --accent: #c4956a;
+      --accent-soft: #d4b896;
+      --accent-light: #e8d5c0;
+      --accent-glow: rgba(196,149,106,0.15);
+      --radius: 24px;
+      --radius-sm: 14px;
+      --shadow-soft: 0 4px 24px rgba(44,36,32,0.06);
+      --shadow-medium: 0 8px 40px rgba(44,36,32,0.1);
+      --shadow-glow: 0 0 60px rgba(196,149,106,0.12);
+    }
+
+    * { margin:0; padding:0; box-sizing:border-box; }
+
+    html {
+      scroll-behavior: smooth;
+      font-size: 16px;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif;
+      font-weight: 400;
+      line-height: 1.7;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    ::selection {
+      background: rgba(196,149,106,0.2);
+      color: var(--text);
+    }
+
+    /* ========== AMBIENT BACKGROUND ========== */
+    .ambient-bg {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      overflow: hidden;
+    }
+
+    .ambient-orb {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(100px);
+      opacity: 0.35;
+      animation: orbFloat 25s ease-in-out infinite;
+    }
+
+    .ambient-orb:nth-child(1) {
+      width: 600px; height: 600px;
+      background: radial-gradient(circle, var(--accent-light), transparent 70%);
+      top: -15%; left: -10%;
+      animation-delay: 0s;
+    }
+
+    .ambient-orb:nth-child(2) {
+      width: 500px; height: 500px;
+      background: radial-gradient(circle, rgba(200,180,220,0.3), transparent 70%);
+      bottom: 5%; right: -8%;
+      animation-delay: -8s;
+      animation-duration: 30s;
+    }
+
+    .ambient-orb:nth-child(3) {
+      width: 400px; height: 400px;
+      background: radial-gradient(circle, rgba(180,200,220,0.25), transparent 70%);
+      top: 45%; left: 35%;
+      animation-delay: -15s;
+      animation-duration: 22s;
+    }
+
+    @keyframes orbFloat {
+      0%, 100% { transform: translate(0, 0) scale(1); }
+      33% { transform: translate(40px, -30px) scale(1.05); }
+      66% { transform: translate(-20px, 20px) scale(0.95); }
+    }
+
+    /* ========== NOISE TEXTURE ========== */
+    .noise-overlay {
+      position: fixed;
+      inset: 0;
+      z-index: 1;
+      pointer-events: none;
+      opacity: 0.025;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+      background-repeat: repeat;
+      background-size: 200px;
+    }
+
+    /* ========== PARTICLES ========== */
+    #particle-canvas {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 2;
+    }
+
+    /* ========== NAVIGATION ========== */
+    .nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      height: 72px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 48px;
+      z-index: 100;
+      background: rgba(250,249,247,0.7);
+      backdrop-filter: blur(24px) saturate(1.2);
+      border-bottom: 1px solid var(--border);
+      transition: all 0.3s ease;
+    }
+
+    .nav.scrolled {
+      background: rgba(250,249,247,0.9);
+      box-shadow: var(--shadow-soft);
+    }
+
+    .nav-left {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .nav-logo {
+      width: 40px; height: 40px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-soft));
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      box-shadow: 0 4px 16px var(--accent-glow);
+      transition: transform 0.3s ease;
+    }
+
+    .nav-logo:hover {
+      transform: rotate(-5deg) scale(1.05);
+    }
+
+    .nav-brand {
+      font-family: 'Noto Serif SC', serif;
+      font-weight: 600;
+      font-size: 1.25rem;
+      letter-spacing: 0.04em;
+      color: var(--text);
+    }
+
+    .nav-right {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .nav-link {
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: 0.9rem;
+      font-weight: 500;
+      padding: 8px 18px;
+      border-radius: 10px;
+      transition: all 0.25s ease;
+      position: relative;
+    }
+
+    .nav-link::after {
+      content: '';
+      position: absolute;
+      bottom: 4px;
+      left: 50%;
+      width: 0;
+      height: 2px;
+      background: var(--accent);
+      border-radius: 1px;
+      transition: all 0.25s ease;
+      transform: translateX(-50%);
+    }
+
+    .nav-link:hover {
+      color: var(--text);
+      background: rgba(196,149,106,0.06);
+    }
+
+    .nav-link:hover::after {
+      width: 24px;
+    }
+
+    .nav-cta {
+      background: linear-gradient(135deg, var(--accent), var(--accent-soft));
+      color: #fff;
+      border: none;
+      padding: 10px 24px;
+      border-radius: 12px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 16px var(--accent-glow);
+      letter-spacing: 0.02em;
+    }
+
+    .nav-cta:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 28px rgba(196,149,106,0.3);
+    }
+
+    /* ========== HERO SECTION ========== */
+    .hero {
+      position: relative;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      padding: 120px 48px 80px;
+      z-index: 3;
+    }
+
+    .hero-inner {
+      max-width: 1280px;
+      width: 100%;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 100px;
+      align-items: center;
+    }
+
+    @media (max-width: 1024px) {
+      .hero-inner {
+        grid-template-columns: 1fr;
+        gap: 60px;
+        text-align: center;
+      }
+      .hero {
+        padding: 120px 24px 60px;
+      }
+      .nav {
+        padding: 0 24px;
+      }
+    }
+
+    /* Hero Left */
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 100px;
+      padding: 8px 20px;
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+      margin-bottom: 32px;
+      animation: fadeInUp 1s ease-out both;
+      font-weight: 500;
+    }
+
+    .hero-badge .pulse {
+      width: 8px; height: 8px;
+      background: linear-gradient(135deg, #7bc8a0, #5aaa80);
+      border-radius: 50%;
+      animation: pulseGreen 2.5s ease-in-out infinite;
+    }
+
+    @keyframes pulseGreen {
+      0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(90,170,128,0.35); }
+      50% { opacity: 0.85; box-shadow: 0 0 0 8px rgba(90,170,128,0); }
+    }
+
+    .hero-title {
+      font-family: 'Noto Serif SC', serif;
+      font-size: clamp(2.8rem, 5.5vw, 4.5rem);
+      font-weight: 700;
+      line-height: 1.15;
+      letter-spacing: 0.02em;
+      margin-bottom: 24px;
+      animation: fadeInUp 1s 0.15s ease-out both;
+      color: var(--text);
+    }
+
+    .hero-title .gradient {
+      background: linear-gradient(135deg, var(--accent), #b8956a, #a08060);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      position: relative;
+    }
+
+    .hero-desc {
+      font-size: 1.15rem;
+      color: var(--text-secondary);
+      line-height: 1.8;
+      max-width: 480px;
+      margin-bottom: 40px;
+      animation: fadeInUp 1s 0.3s ease-out both;
+      font-weight: 400;
+    }
+
+    .hero-stats {
+      display: flex;
+      gap: 40px;
+      animation: fadeInUp 1s 0.45s ease-out both;
+    }
+
+    .hero-stats > div {
+      text-align: left;
+    }
+
+    @media (max-width: 1024px) {
+      .hero-stats {
+        justify-content: center;
+      }
+      .hero-stats > div {
+        text-align: center;
+      }
+      .hero-desc {
+        margin-left: auto;
+        margin-right: auto;
+      }
+    }
+
+    .hero-stats span {
+      display: block;
+      font-family: 'Noto Serif SC', serif;
+      font-size: 2rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, var(--accent), var(--accent-soft));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      line-height: 1.2;
+    }
+
+    .hero-stats label {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      margin-top: 4px;
+      display: block;
+      font-weight: 500;
+    }
+
+    /* Hero Right - Input Card */
+    .input-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 36px;
+      backdrop-filter: blur(20px);
+      animation: fadeInUp 1s 0.35s ease-out both;
+      position: relative;
+      overflow: hidden;
+      box-shadow: var(--shadow-soft);
+      transition: box-shadow 0.3s ease;
+    }
+
+    .input-card:hover {
+      box-shadow: var(--shadow-medium), var(--shadow-glow);
+    }
+
+    .input-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--accent-soft), transparent);
+      opacity: 0.6;
+    }
+
+    .input-card h3 {
+      font-family: 'Noto Serif SC', serif;
+      font-size: 1.15rem;
+      font-weight: 600;
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--text);
+    }
+
+    .input-card h3 .sparkle {
+      animation: sparkle 2.5s ease-in-out infinite;
+      font-size: 1.1em;
+    }
+
+    @keyframes sparkle {
+      0%, 100% { opacity: 1; transform: scale(1) rotate(0deg); }
+      50% { opacity: 0.6; transform: scale(1.15) rotate(5deg); }
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 150px;
+      background: rgba(255,255,255,0.6);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 18px;
+      color: var(--text);
+      font-size: 0.95rem;
+      resize: vertical;
+      outline: none;
+      transition: all 0.3s ease;
+      line-height: 1.7;
+      font-family: inherit;
+      font-weight: 400;
+    }
+
+    textarea:focus {
+      border-color: var(--accent-soft);
+      box-shadow: 0 0 0 4px var(--accent-glow);
+      background: rgba(255,255,255,0.8);
+    }
+
+    textarea::placeholder {
+      color: #c0b8a8;
+      font-weight: 300;
+    }
+
+    .char-count {
+      text-align: right;
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      margin-top: 8px;
+      font-weight: 500;
+    }
+
+    .options-row {
+      display: flex;
+      gap: 14px;
+      margin-top: 18px;
+      flex-wrap: wrap;
+    }
+
+    .opt-chip {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(255,255,255,0.6);
+      border: 1.5px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 9px 16px;
+      transition: all 0.25s ease;
+    }
+
+    .opt-chip:hover {
+      border-color: var(--border-hover);
+      background: rgba(255,255,255,0.8);
+    }
+
+    .opt-chip label {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      white-space: nowrap;
+      font-weight: 500;
+    }
+
+    select {
+      background: transparent;
+      border: none;
+      color: var(--text);
+      font-size: 0.88rem;
+      outline: none;
+      cursor: pointer;
+      appearance: none;
+      padding-right: 18px;
+      font-weight: 500;
+      font-family: inherit;
+    }
+
+    .btn-row {
+      display: flex;
+      gap: 12px;
+      margin-top: 22px;
+    }
+
+    .btn {
+      flex: 1;
+      padding: 15px 24px;
+      border-radius: var(--radius-sm);
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: all 0.3s cubic-bezier(0.4,0,0.2,1);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      font-family: inherit;
+      letter-spacing: 0.02em;
+    }
+
+    .btn-glow {
+      background: linear-gradient(135deg, var(--accent), var(--accent-soft));
+      color: #fff;
+      box-shadow: 0 4px 20px var(--accent-glow);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .btn-glow::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.12), transparent);
+      transform: translateX(-100%);
+      transition: transform 0.6s;
+    }
+
+    .btn-glow:hover::after {
+      transform: translateX(100%);
+    }
+
+    .btn-glow:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 32px rgba(196,149,106,0.25);
+    }
+
+    .btn-glow:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .btn-outline {
+      background: rgba(255,255,255,0.6);
+      color: var(--text-secondary);
+      border: 1.5px solid var(--border);
+    }
+
+    .btn-outline:hover:not(:disabled) {
+      color: var(--text);
+      border-color: var(--border-hover);
+      background: rgba(255,255,255,0.9);
+      transform: translateY(-1px);
+    }
+
+    .loading {
+      display: none;
+      text-align: center;
+      margin-top: 28px;
+    }
+
+    .loading.active {
+      display: block;
+    }
+
+    .spinner {
+      width: 32px; height: 32px;
+      border: 3px solid rgba(196,149,106,0.1);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.9s linear infinite;
+      margin: 0 auto 12px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .loading p {
+      color: var(--text-secondary);
+      font-size: 0.88rem;
+      font-weight: 500;
+    }
+
+    .status {
+      margin-top: 18px;
+      padding: 12px 18px;
+      border-radius: var(--radius-sm);
+      font-size: 0.88rem;
+      display: none;
+      font-weight: 500;
+      line-height: 1.5;
+    }
+
+    .status.error {
+      display: block;
+      background: rgba(220,100,100,0.06);
+      border: 1.5px solid rgba(220,100,100,0.15);
+      color: #c85555;
+    }
+
+    .status.warning {
+      display: block;
+      background: rgba(220,180,80,0.06);
+      border: 1.5px solid rgba(220,180,80,0.15);
+      color: #b89530;
+    }
+
+    .status.success {
+      display: block;
+      background: rgba(90,170,128,0.06);
+      border: 1.5px solid rgba(90,170,128,0.15);
+      color: #5aaa80;
+    }
+
+    /* ========== FEATURES SECTION ========== */
+    .features {
+      position: relative;
+      z-index: 3;
+      padding: 120px 48px;
+      background: linear-gradient(180deg, transparent, var(--bg-warm) 15%, var(--bg-warm) 85%, transparent);
+    }
+
+    .features-inner {
+      max-width: 1140px;
+      margin: 0 auto;
+    }
+
+    .section-header {
+      text-align: center;
+      margin-bottom: 72px;
+    }
+
+    .section-header h2 {
+      font-family: 'Noto Serif SC', serif;
+      font-size: clamp(1.8rem, 4vw, 2.8rem);
+      font-weight: 700;
+      margin-bottom: 16px;
+      letter-spacing: 0.02em;
+      color: var(--text);
+    }
+
+    .section-header p {
+      color: var(--text-secondary);
+      font-size: 1.1rem;
+      max-width: 520px;
+      margin: 0 auto;
+      line-height: 1.7;
+    }
+
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 24px;
+    }
+
+    .feature-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 36px;
+      transition: all 0.4s cubic-bezier(0.4,0,0.2,1);
+      opacity: 0;
+      transform: translateY(40px);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .feature-card.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .feature-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--accent-soft), transparent);
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    .feature-card:hover {
+      transform: translateY(-8px);
+      border-color: rgba(196,149,106,0.2);
+      box-shadow: var(--shadow-medium), var(--shadow-glow);
+    }
+
+    .feature-card:hover::before {
+      opacity: 0.6;
+    }
+
+    .feature-icon {
+      width: 52px; height: 52px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-soft));
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      margin-bottom: 22px;
+      box-shadow: 0 8px 24px var(--accent-glow);
+      transition: transform 0.3s ease;
+    }
+
+    .feature-card:hover .feature-icon {
+      transform: scale(1.1) rotate(-3deg);
+    }
+
+    .feature-card h3 {
+      font-family: 'Noto Serif SC', serif;
+      font-size: 1.15rem;
+      font-weight: 600;
+      margin-bottom: 10px;
+      color: var(--text);
+    }
+
+    .feature-card p {
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+      line-height: 1.7;
+    }
+
+    /* ========== DEMO SECTION ========== */
+    .demo {
+      position: relative;
+      z-index: 3;
+      padding: 100px 48px;
+    }
+
+    .demo-inner {
+      max-width: 1140px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 1fr 1.4fr;
+      gap: 80px;
+      align-items: center;
+    }
+
+    @media (max-width: 900px) {
+      .demo-inner {
+        grid-template-columns: 1fr;
+        gap: 50px;
+      }
+      .demo {
+        padding: 80px 24px;
+      }
+    }
+
+    .demo-text h2 {
+      font-family: 'Noto Serif SC', serif;
+      font-size: clamp(1.6rem, 3.5vw, 2.4rem);
+      font-weight: 700;
+      margin-bottom: 20px;
+      line-height: 1.25;
+      color: var(--text);
+    }
+
+    .demo-text p {
+      color: var(--text-secondary);
+      font-size: 1.05rem;
+      line-height: 1.8;
+      margin-bottom: 24px;
+    }
+
+    .demo-text ul {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .demo-text li {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      color: var(--text-secondary);
+      font-size: 0.95rem;
+      font-weight: 500;
+    }
+
+    .demo-text li::before {
+      content: '✓';
+      width: 22px; height: 22px;
+      background: rgba(90,170,128,0.1);
+      border: 1.5px solid rgba(90,170,128,0.2);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.7rem;
+      color: #5aaa80;
+      flex-shrink: 0;
+      font-weight: 700;
+    }
+
+    .demo-frame-wrap {
+      position: relative;
+      border-radius: var(--radius);
+      overflow: hidden;
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow-medium);
+      transform: perspective(1200px) rotateY(-4deg) rotateX(2deg);
+      transition: transform 0.6s cubic-bezier(0.4,0,0.2,1);
+    }
+
+    .demo-frame-wrap:hover {
+      transform: perspective(1200px) rotateY(0deg) rotateX(0deg);
+    }
+
+    .demo-frame-wrap iframe {
+      width: 100%;
+      aspect-ratio: 16/10;
+      border: none;
+      display: block;
+      background: #0f0f13;
+    }
+
+    .demo-frame-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 12px 18px;
+      background: #0f0f18;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .demo-frame-bar span {
+      width: 12px; height: 12px;
+      border-radius: 50%;
+    }
+
+    .demo-frame-bar .dot-r { background: #ff5f57; }
+    .demo-frame-bar .dot-y { background: #febc2e; }
+    .demo-frame-bar .dot-g { background: #28c840; }
+
+    /* ========== EXAMPLES SECTION ========== */
+    .examples {
+      position: relative;
+      z-index: 3;
+      padding: 100px 48px 140px;
+    }
+
+    .examples-inner {
+      max-width: 960px;
+      margin: 0 auto;
+      text-align: center;
+    }
+
+    .examples h2 {
+      font-family: 'Noto Serif SC', serif;
+      font-size: clamp(1.6rem, 3vw, 2.2rem);
+      font-weight: 700;
+      margin-bottom: 16px;
+      color: var(--text);
+    }
+
+    .examples > .examples-inner > p {
+      color: var(--text-secondary);
+      font-size: 1.05rem;
+      margin-bottom: 40px;
+    }
+
+    .example-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      justify-content: center;
+    }
+
+    .example-chip {
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: 100px;
+      padding: 12px 24px;
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all 0.3s ease;
+      font-weight: 500;
+      font-family: inherit;
+    }
+
+    .example-chip:hover {
+      background: rgba(196,149,106,0.06);
+      border-color: rgba(196,149,106,0.25);
+      color: var(--accent);
+      transform: translateY(-3px);
+      box-shadow: 0 8px 24px rgba(196,149,106,0.1);
+    }
+
+    /* ========== FOOTER ========== */
+    .footer {
+      position: relative;
+      z-index: 3;
+      padding: 48px;
+      text-align: center;
+      border-top: 1px solid var(--border);
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      background: var(--bg-warm);
+      font-weight: 500;
+    }
+
+    /* ========== ANIMATIONS ========== */
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(30px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    /* Mobile */
+    @media (max-width: 640px) {
+      .hero {
+        padding: 100px 20px 40px;
+      }
+      .features {
+        padding: 80px 20px;
+      }
+      .demo {
+        padding: 60px 20px;
+      }
+      .examples {
+        padding: 60px 20px 80px;
+      }
+      .hero-stats {
+        gap: 24px;
+      }
+      .hero-stats span {
+        font-size: 1.6rem;
+      }
+      .btn-row {
+        flex-direction: column;
+      }
+      .options-row {
+        flex-direction: column;
+      }
+      .opt-chip {
+        width: 100%;
+        justify-content: space-between;
+      }
+      .nav-link {
+        display: none;
+      }
+      .input-card {
+        padding: 24px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Ambient Background -->
+  <div class="ambient-bg">
+    <div class="ambient-orb"></div>
+    <div class="ambient-orb"></div>
+    <div class="ambient-orb"></div>
+  </div>
+  <div class="noise-overlay"></div>
+  <canvas id="particle-canvas"></canvas>
+
+  <!-- Navigation -->
+  <nav class="nav" id="navbar">
+    <div class="nav-left">
+      <div class="nav-logo">☁️</div>
+      <span class="nav-brand">云心</span>
+    </div>
+    <div class="nav-right">
+      <a href="#features" class="nav-link">特性</a>
+      <a href="#demo" class="nav-link">演示</a>
+      <a href="#examples" class="nav-link">示例</a>
+      <button class="nav-cta" onclick="scrollToInput()">开始创作</button>
+    </div>
+  </nav>
+
+  <!-- Hero -->
+  <section class="hero">
+    <div class="hero-inner">
+      <div class="hero-left">
+        <div class="hero-badge">
+          <span class="pulse"></span>
+          AI 驱动的幻灯片生成器
+        </div>
+        <h1 class="hero-title">
+          用一句话<br>
+          <span class="gradient">生成精美幻灯片</span>
+        </h1>
+        <p class="hero-desc">
+          基于 reveal.js 5.x，支持垂直滑梯、自动动画、片段效果、卡片布局等高级特性。
+          只需描述你的需求，AI 即可生成可直接演示的 HTML 幻灯片。
+        </p>
+        <div class="hero-stats">
+          <div><span>8+</span><label>高级特性</label></div>
+          <div><span>12</span><label>内置主题</label></div>
+          <div><span>∞</span><label>创意可能</label></div>
+        </div>
+      </div>
+
+      <div class="hero-right" id="inputArea">
+        <div class="input-card">
+          <h3><span class="sparkle">✨</span> 开始创作</h3>
+          <textarea id="prompt" placeholder="描述你想做的幻灯片主题...&#10;&#10;例如：人工智能发展历程，从图灵测试到 GPT-4 的技术演进"></textarea>
+          <div class="char-count"><span id="charCount">0</span> 字</div>
+          <div class="options-row">
+            <div class="opt-chip">
+              <label>模型</label>
+              <select id="model">
+                <option value="glm-4-flash">GLM-4 Flash</option>
+              </select>
+            </div>
+            <div class="opt-chip">
+              <label>模式</label>
+              <select id="mode">
+                <option value="code">AI 生成代码</option>
+                <option value="json">结构化内容</option>
+              </select>
+            </div>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-outline" id="outlineBtn" onclick="generateOutline()">📋 生成大纲</button>
+            <button class="btn btn-glow" id="generateBtn" onclick="generateDirect()">✨ 直接生成</button>
+          </div>
+          <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p id="loadingText">AI 正在创作中...</p>
+          </div>
+          <div class="status" id="status"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features -->
+  <section class="features" id="features">
+    <div class="features-inner">
+      <div class="section-header">
+        <h2>不只是幻灯片，是<span class="gradient">视觉体验</span></h2>
+        <p>充分利用 reveal.js 5.x 的每一个高级特性，让你的演示脱颖而出</p>
+      </div>
+      <div class="feature-grid">
+        <div class="feature-card" data-animate>
+          <div class="feature-icon">↕️</div>
+          <h3>垂直滑梯</h3>
+          <p>嵌套式幻灯片结构，用大主题统领子内容，逻辑层次一目了然</p>
+        </div>
+        <div class="feature-card" data-animate>
+          <div class="feature-icon">🎬</div>
+          <h3>自动动画</h3>
+          <p>相邻幻灯片间平滑过渡，标题、图片、文字无缝衔接，电影级视觉体验</p>
+        </div>
+        <div class="feature-card" data-animate>
+          <div class="feature-icon">✨</div>
+          <h3>片段动画</h3>
+          <p>fade-up、zoom、grow、highlight 等 12 种 fragment 效果，控制演讲节奏</p>
+        </div>
+        <div class="feature-card" data-animate>
+          <div class="feature-icon">🎨</div>
+          <h3>丰富背景</h3>
+          <p>渐变、图片、视频、纯色背景自由切换，每页都是视觉作品</p>
+        </div>
+        <div class="feature-card" data-animate>
+          <div class="feature-icon">🃏</div>
+          <h3>卡片布局</h3>
+          <p>CSS Grid 驱动的现代卡片设计，毛玻璃效果，hover 交互反馈</p>
+        </div>
+        <div class="feature-card" data-animate>
+          <div class="feature-icon">📝</div>
+          <h3>演讲者备注</h3>
+          <p>每页添加备注，按 S 键进入演讲者视图，从容掌控全场</p>
+        </div>
+        <div class="feature-card" data-animate>
+          <div class="feature-icon">💻</div>
+          <h3>代码高亮</h3>
+          <p>支持 190+ 种语言的语法高亮，行号标记，技术演示专业呈现</p>
+        </div>
+        <div class="feature-card" data-animate>
+          <div class="feature-icon">📐</div>
+          <h3>数学公式</h3>
+          <p>内置 KaTeX 支持，学术报告、科研展示中的公式排版游刃有余</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Demo -->
+  <section class="demo" id="demo">
+    <div class="demo-inner">
+      <div class="demo-text">
+        <h2>实时预览，所见即所得</h2>
+        <p>生成后的幻灯片支持即时预览、分屏编辑、代码调整。无需下载即可在浏览器中直接演示。</p>
+        <ul>
+          <li>三种视图模式：预览 / 分屏 / 代码</li>
+          <li>实时编辑，即时刷新</li>
+          <li>一键导出 HTML 或打印 PDF</li>
+          <li>全屏演示，支持键盘导航</li>
+        </ul>
+      </div>
+      <div class="demo-frame-wrap">
+        <div class="demo-frame-bar">
+          <span class="dot-r"></span>
+          <span class="dot-y"></span>
+          <span class="dot-g"></span>
+        </div>
+        <iframe id="demoFrame" srcdoc=""></iframe>
+      </div>
+    </div>
+  </section>
+
+  <!-- Examples -->
+  <section class="examples" id="examples">
+    <div class="examples-inner">
+      <h2>灵感无限，<span class="gradient">一键生成</span></h2>
+      <p>不知道写什么？试试这些示例提示词</p>
+      <div class="example-grid">
+        <span class="example-chip" onclick="setPrompt(this)">人工智能发展历程：从图灵到 GPT</span>
+        <span class="example-chip" onclick="setPrompt(this)">Python 编程入门教程</span>
+        <span class="example-chip" onclick="setPrompt(this)">2024 年度工作总结报告</span>
+        <span class="example-chip" onclick="setPrompt(this)">新产品发布会演示方案</span>
+        <span class="example-chip" onclick="setPrompt(this)">气候变化与可持续发展</span>
+        <span class="example-chip" onclick="setPrompt(this)">《三体》读书分享会</span>
+        <span class="example-chip" onclick="setPrompt(this)">创业项目路演 PPT</span>
+        <span class="example-chip" onclick="setPrompt(this)">机器学习算法入门</span>
+        <span class="example-chip" onclick="setPrompt(this)">Web3 与区块链技术</span>
+        <span class="example-chip" onclick="setPrompt(this)">企业数字化转型战略</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer">
+    Powered by 智谱 AI · Built with reveal.js v5 · 云心
+  </footer>
+
+  <script>
+    // ==================== PARTICLES ====================
+    const canvas = document.getElementById('particle-canvas');
+    const ctx = canvas.getContext('2d');
+    let particles = [];
+    const PARTICLE_COUNT = window.innerWidth < 768 ? 25 : 50;
+    const CONNECTION_DIST = 140;
+
+    function resizeCanvas() {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+    }
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+
+    class Particle {
+      constructor() {
+        this.x = Math.random() * canvas.width;
+        this.y = Math.random() * canvas.height;
+        this.vx = (Math.random() - 0.5) * 0.4;
+        this.vy = (Math.random() - 0.5) * 0.4;
+        this.radius = Math.random() * 1.2 + 0.4;
+        this.opacity = Math.random() * 0.4 + 0.2;
+      }
+      update() {
+        this.x += this.vx;
+        this.y += this.vy;
+        if (this.x < 0 || this.x > canvas.width) this.vx *= -1;
+        if (this.y < 0 || this.y > canvas.height) this.vy *= -1;
+      }
+      draw() {
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(196,149,106,${this.opacity})`;
+        ctx.fill();
+      }
+    }
+
+    for (let i = 0; i < PARTICLE_COUNT; i++) particles.push(new Particle());
+
+    let mouseX = 0, mouseY = 0;
+    document.addEventListener('mousemove', e => {
+      mouseX = e.clientX;
+      mouseY = e.clientY;
+    });
+
+    function animateParticles() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      particles.forEach((p, i) => {
+        p.update();
+        p.draw();
+        // Connect nearby particles
+        for (let j = i + 1; j < particles.length; j++) {
+          const dx = p.x - particles[j].x;
+          const dy = p.y - particles[j].y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < CONNECTION_DIST) {
+            ctx.beginPath();
+            ctx.moveTo(p.x, p.y);
+            ctx.lineTo(particles[j].x, particles[j].y);
+            ctx.strokeStyle = `rgba(196,149,106,${0.08 * (1 - dist / CONNECTION_DIST)})`;
+            ctx.lineWidth = 0.6;
+            ctx.stroke();
+          }
+        }
+        // Mouse repulsion
+        const mdx = p.x - mouseX;
+        const mdy = p.y - mouseY;
+        const mDist = Math.sqrt(mdx * mdx + mdy * mdy);
+        if (mDist < 100) {
+          const force = (100 - mDist) / 100;
+          p.vx += (mdx / mDist) * force * 0.015;
+          p.vy += (mdy / mDist) * force * 0.015;
+        }
+      });
+      requestAnimationFrame(animateParticles);
+    }
+    animateParticles();
+
+    // ==================== NAV SCROLL EFFECT ====================
+    const navbar = document.getElementById('navbar');
+    window.addEventListener('scroll', () => {
+      if (window.scrollY > 50) {
+        navbar.classList.add('scrolled');
+      } else {
+        navbar.classList.remove('scrolled');
+      }
+    });
+
+    // ==================== SCROLL ANIMATIONS ====================
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible');
+          const cards = entry.target.querySelectorAll('.feature-card');
+          cards.forEach((card, i) => {
+            setTimeout(() => card.classList.add('visible'), i * 100);
+          });
+        }
+      });
+    }, { threshold: 0.1 });
+
+    document.querySelectorAll('[data-animate]').forEach(el => observer.observe(el));
+
+    // ==================== DEMO IFRAME ====================
+    const demoHTML = `<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5/dist/reveal.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5/dist/theme/black.css">
+<style>
+.reveal h1,.reveal h2{font-family:'Noto Serif SC',serif;font-weight:700}
+.reveal p,.reveal li{font-size:0.85em;line-height:1.6}
+</style>
+</head><body>
+<div class="reveal"><div class="slides">
+<section data-background-gradient="linear-gradient(135deg,#3d2b1f,#16213e)">
+<h1 style="font-size:2.2em;font-family:'Noto Serif SC',serif">云心</h1><p style="opacity:0.7">AI 驱动的幻灯片生成器</p>
+</section>
+<section>
+<h2>🚀 快速生成</h2><ul><li class="fragment fade-up">输入一句话描述</li><li class="fragment fade-up">AI 自动生成完整 HTML</li><li class="fragment fade-up">立即可预览演示</li></ul>
+</section>
+<section data-background-gradient="linear-gradient(135deg,#c4956a,#a08060)">
+<h2>✨ 高级特性</h2><p>垂直滑梯 · 自动动画 · 片段效果</p>
+</section>
+</div></div>
+<script src="https://cdn.jsdelivr.net/npm/reveal.js@5/dist/reveal.js"><\/script>
+<script>Reveal.initialize({hash:true,transition:'slide',autoSlide:3000,loop:true});<\/script>
+</body></html>`;
+    document.getElementById('demoFrame').srcdoc = demoHTML;
+
+    // ==================== FORM LOGIC ====================
+    const promptEl = document.getElementById('prompt');
+    const charCountEl = document.getElementById('charCount');
+    const statusEl = document.getElementById('status');
+    const loadingEl = document.getElementById('loading');
+    const outlineBtn = document.getElementById('outlineBtn');
+    const generateBtn = document.getElementById('generateBtn');
+
+    promptEl.addEventListener('input', () => {
+      charCountEl.textContent = promptEl.value.length;
+    });
+
+    function setPrompt(el) {
+      promptEl.value = el.textContent;
+      charCountEl.textContent = promptEl.value.length;
+      promptEl.focus();
+      scrollToInput();
+    }
+
+    function scrollToInput() {
+      document.getElementById('inputArea').scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    function showStatus(msg, type) {
+      statusEl.textContent = msg;
+      statusEl.className = 'status ' + type;
+    }
+
+    function clearStatus() {
+      statusEl.className = 'status';
+      statusEl.textContent = '';
+    }
+
+    function setLoading(show, text) {
+      loadingEl.classList.toggle('active', show);
+      if (text) document.getElementById('loadingText').textContent = text;
+      outlineBtn.disabled = show;
+      generateBtn.disabled = show;
+    }
+
+    // 带超时的 fetch 封装
+    async function fetchWithTimeout(url, options = {}, timeoutMs = 120000) {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        const res = await fetch(url, { ...options, signal: controller.signal });
+        clearTimeout(timeoutId);
+        return res;
+      } catch (err) {
+        clearTimeout(timeoutId);
+        if (err.name === 'AbortError') {
+          throw new Error('请求超时，AI 生成时间较长，请稍后重试');
+        }
+        throw err;
+      }
+    }
+
+    async function safeJson(res) {
+      const text = await res.text();
+      const contentType = res.headers.get('content-type') || '';
+      if (!contentType.includes('application/json')) {
+        console.warn('服务器返回非 JSON 内容类型:', contentType, '状态码:', res.status);
+      }
+      try {
+        return JSON.parse(text);
+      } catch (e) {
+        console.error('JSON 解析失败，原始响应:', text.slice(0, 1000));
+        const titleMatch = text.match(/<title>(.*?)<\/title>/i);
+        const h1Match = text.match(/<h1[^>]*>(.*?)<\/h1>/i);
+        const errorHint = titleMatch?.[1] || h1Match?.[1] || '';
+        if (errorHint && errorHint.toLowerCase().includes('error')) {
+          throw new Error(`服务器错误: ${errorHint}`);
+        }
+        throw new Error('服务器返回了非 JSON 数据，可能是服务暂时不可用，请稍后重试');
+      }
+    }
+
+    function getFriendlyError(err) {
+      let msg = err.message || '未知错误';
+      if (msg.includes('fetch') || msg.includes('network') || msg.includes('Failed to fetch')) {
+        return '网络连接失败，请检查网络后重试';
+      }
+      if (msg.includes('timeout') || msg.includes('超时') || msg.includes('abort')) {
+        return 'AI 生成时间较长已超时，建议减少页数或简化描述后重试';
+      }
+      if (msg.includes('非 JSON') || msg.includes('JSON')) {
+        return '服务器响应异常，可能是服务暂时不可用，请稍后重试';
+      }
+      return msg;
+    }
+
+    async function generateOutline() {
+      const prompt = promptEl.value.trim();
+      if (!prompt) { showStatus('请输入幻灯片描述', 'error'); promptEl.focus(); return; }
+      setLoading(true, 'AI 正在生成大纲...');
+      clearStatus();
+      try {
+        const res = await fetchWithTimeout('/api/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'outline', prompt, pages: 8 }),
+        }, 90000);
+        const data = await safeJson(res);
+        if (!res.ok || !data.success) throw new Error(data.error || '大纲生成失败');
+        localStorage.setItem('slidegen_outline', JSON.stringify(data.outline));
+        localStorage.setItem('slidegen_prompt', prompt);
+        localStorage.setItem('slidegen_mode', document.getElementById('mode').value);
+        window.location.href = '/outline.html';
+      } catch (err) {
+        showStatus(getFriendlyError(err), 'error');
+        setLoading(false);
+      }
+    }
+
+    async function generateDirect() {
+      const prompt = promptEl.value.trim();
+      if (!prompt) { showStatus('请输入幻灯片描述', 'error'); promptEl.focus(); return; }
+      setLoading(true, 'AI 正在创作幻灯片...');
+      clearStatus();
+      try {
+        const res = await fetchWithTimeout('/api/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt, mode: document.getElementById('mode').value }),
+        }, 120000);
+        const data = await safeJson(res);
+        if (!res.ok || !data.success) throw new Error(data.error || '生成失败');
+        if (!data.html || !data.html.trim()) throw new Error('服务器返回了空的幻灯片内容');
+        if (data.warning) showStatus(data.warning, 'warning');
+        else if (data.ai) showStatus(`已由 ${data.model} 生成 · 共 ${data.pages} 页`, 'success');
+        const params = new URLSearchParams({
+          html: encodeURIComponent(data.html),
+          title: encodeURIComponent(data.title || '未命名幻灯片'),
+          ai: data.ai ? '1' : '0',
+          model: data.model || '',
+        });
+        window.location.href = '/preview.html?' + params.toString();
+      } catch (err) {
+        showStatus(getFriendlyError(err), 'error');
+        setLoading(false);
+      }
+    }
+
+    promptEl.addEventListener('keydown', e => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') generateDirect();
+    });
+  </script>
+</body>
+</html>
