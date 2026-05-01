@@ -1,4 +1,4 @@
-# SlideGen - AI 幻灯片生成器
+云心幻灯片生成器
 
 基于 reveal.js v5 的 AI 驱动幻灯片生成器，部署在 Vercel。
 
