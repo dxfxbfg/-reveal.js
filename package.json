@@ -1,0 +1,33 @@
+{
+  "name": "slidegen",
+  "version": "2.1.0",
+  "description": "AI-powered reveal.js slide generator with online editing",
+  "author": "SlideGen Team",
+  "license": "MIT",
+  "scripts": {
+    "dev": "vercel dev",
+    "deploy": "vercel deploy --prod --yes",
+    "start": "vercel dev",
+    "vercel-build": "npx prisma generate && npx prisma db push --accept-data-loss && echo 'Build complete'",
+    "db:migrate": "npx prisma migrate dev",
+    "db:push": "npx prisma db push",
+    "db:studio": "npx prisma studio"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "devDependencies": {
+    "@prisma/client": "^6.19.3",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/pg": "^8.20.0",
+    "dotenv": "^17.4.2",
+    "prisma": "^6.19.3"
+  },
+  "dependencies": {
+    "@prisma/adapter-pg": "^7.8.0",
+    "bcryptjs": "^3.0.3",
+    "jsonwebtoken": "^9.0.3",
+    "pg": "^8.20.0"
+  }
+}
