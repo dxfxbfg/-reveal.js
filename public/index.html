@@ -1271,7 +1271,7 @@
             <div class="opt-chip">
               <label>模型</label>
               <select id="model">
-                <option value="glm-4-flash">GLM-4 Flash</option>
+                <option value="minimax/minimax-01-mini">MiniMax-01-Mini</option>
               </select>
             </div>
             <div class="opt-chip">
@@ -1717,7 +1717,7 @@
         const params = new URLSearchParams({
           k: sessionKey,
           ai: '1',
-          model: 'glm-4-flash',
+          model: 'minimax/minimax-01-mini',
         });
         window.location.href = '/preview.html?' + params.toString();
       } catch (err) {
